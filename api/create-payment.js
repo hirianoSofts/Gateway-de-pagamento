@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  // Configuração dos Cabeçalhos CORS para permitir chamadas de outros sites
+  // Configuração dos Cabeçalhos CORS
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
@@ -8,7 +8,6 @@ export default async function handler(req, res) {
     "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
   );
 
-  // Responde imediatamente a requisições de verificação (OPTIONS)
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -21,26 +20,23 @@ export default async function handler(req, res) {
     const apiKey = process.env.ZUMBOPAY_API_KEY;
 
     if (!apiKey) {
-      return res.status(500).json({
-        error: "ZUMBOPAY_API_KEY não configurada na Vercel."
-      });
+      return res.status(500).json({ error: "ZUMBOPAY_API_KEY não configurada na Vercel." });
     }
 
     const body = req.body;
 
     if (!body || !body.amount || !body.customer?.phone) {
-      return res.status(400).json({
-        error: "O valor (amount) e o número de telefone são obrigatórios."
-      });
+      return res.status(400).json({ error: "O valor (amount) e o número de telefone são obrigatórios." });
     }
 
-    // Chamada à API da ZumboPay
+    // Chamada à API ZumboPay
     const response = await fetch("https://zumbopay.com/api/v1/payments", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "Accept": "application/json"
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
       },
       body: JSON.stringify({
         amount: Number(body.amount),
@@ -60,15 +56,12 @@ export default async function handler(req, res) {
     try {
       data = JSON.parse(text);
     } catch {
-      data = { raw: text };
+      data = { error: "A ZumboPay respondeu com HTML em vez de JSON.", raw: text };
     }
 
     return res.status(response.status).json(data);
 
   } catch (error) {
-    console.error("Erro na API:", error);
-    return res.status(500).json({
-      error: error.message || "Erro interno do servidor."
-    });
+    return res.status(500).json({ error: error.message || "Erro interno no servidor." });
   }
 }
