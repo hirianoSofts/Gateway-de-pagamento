@@ -1,1 +1,1 @@
-{ "name": "zumbopay-vercel-backend", "version": "1.0.0", "private": true }
+{"name":"zumbopay-vercel-backend","private":true,"engines":{"node":"24.x"}}
