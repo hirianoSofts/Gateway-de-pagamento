@@ -1,39 +1,17 @@
-export default async function handler(req, res) {
-
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "POST, OPTIONS"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type"
-  );
-
-  if (req.method === "OPTIONS") {
-    return res.status(204).end();
-  }
-
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      error: "Use POST."
-    });
-  }
-
+export async function POST(request) {
   try {
-
     const apiKey = process.env.ZUMBOPAY_API_KEY;
 
     if (!apiKey) {
-      return res.status(500).json({
-        error: "ZUMBOPAY_API_KEY não configurada."
-      });
+      return Response.json(
+        {
+          error: "ZUMBOPAY_API_KEY não configurada na Vercel."
+        },
+        { status: 500 }
+      );
     }
 
-    const body =
-      typeof req.body === "string"
-        ? JSON.parse(req.body)
-        : req.body;
+    const body = await request.json();
 
     console.log("Pedido recebido:", body);
 
@@ -43,16 +21,14 @@ export default async function handler(req, res) {
         method: "POST",
 
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "Accept": "application/json"
+          Accept: "application/json"
         },
 
         body: JSON.stringify({
           amount: Number(body.amount),
-
           currency: body.currency || "MZN",
-
           method: body.method || "mpesa",
 
           customer: {
@@ -80,21 +56,23 @@ export default async function handler(req, res) {
     }
 
     console.log(
-      "ZumboPay:",
+      "Resposta ZumboPay:",
       response.status,
       data
     );
 
-    return res
-      .status(response.status)
-      .json(data);
+    return Response.json(data, {
+      status: response.status
+    });
 
   } catch (error) {
-
     console.error(error);
 
-    return res.status(500).json({
-      error: error.message
-    });
+    return Response.json(
+      {
+        error: error.message
+      },
+      { status: 500 }
+    );
   }
-      }
+}
