@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  // Configuração dos Cabeçalhos CORS
+  // Configuração explícita de cabeçalhos CORS
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
@@ -8,12 +8,13 @@ export default async function handler(req, res) {
     "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
   );
 
+  // Trata a verificação prévia (Preflight) do navegador
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Método não permitido. Use POST." });
+    return res.status(405).json({ error: "Método não permitido. Usa POST." });
   }
 
   try {
@@ -23,13 +24,21 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "ZUMBOPAY_API_KEY não configurada na Vercel." });
     }
 
-    const body = req.body;
+    // Leitura segura do corpo do pedido (seja objeto ou texto JSON)
+    let body = req.body;
+    if (typeof body === "string") {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        return res.status(400).json({ error: "O corpo da requisição não é um JSON válido." });
+      }
+    }
 
     if (!body || !body.amount || !body.customer?.phone) {
       return res.status(400).json({ error: "O valor (amount) e o número de telefone são obrigatórios." });
     }
 
-    // Chamada à API ZumboPay
+    // Chamada à API da ZumboPay
     const response = await fetch("https://zumbopay.com/api/v1/payments", {
       method: "POST",
       headers: {
@@ -56,12 +65,13 @@ export default async function handler(req, res) {
     try {
       data = JSON.parse(text);
     } catch {
-      data = { error: "A ZumboPay respondeu com HTML em vez de JSON.", raw: text };
+      data = { error: "A ZumboPay devolveu resposta sem formato JSON.", raw: text };
     }
 
     return res.status(response.status).json(data);
 
   } catch (error) {
-    return res.status(500).json({ error: error.message || "Erro interno no servidor." });
+    console.error("Erro no handler:", error);
+    return res.status(500).json({ error: error.message || "Erro interno do servidor." });
   }
 }
