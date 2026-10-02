@@ -1,49 +1,46 @@
-// Trata requisições preflight (CORS) de outros sites
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    },
-  });
-}
+export default async function handler(req, res) {
+  // Configuração dos Cabeçalhos CORS para permitir chamadas de outros sites
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
+  );
 
-export async function POST(request) {
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Content-Type": "application/json",
-  };
+  // Responde imediatamente a requisições de verificação (OPTIONS)
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Método não permitido. Use POST." });
+  }
 
   try {
     const apiKey = process.env.ZUMBOPAY_API_KEY;
 
     if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: "ZUMBOPAY_API_KEY não configurada na Vercel." }),
-        { status: 500, headers: corsHeaders }
-      );
+      return res.status(500).json({
+        error: "ZUMBOPAY_API_KEY não configurada na Vercel."
+      });
     }
 
-    const body = await request.json();
+    const body = req.body;
 
-    if (!body.amount || !body.customer?.phone) {
-      return new Response(
-        JSON.stringify({ error: "O valor (amount) e o telefone são obrigatórios." }),
-        { status: 400, headers: corsHeaders }
-      );
+    if (!body || !body.amount || !body.customer?.phone) {
+      return res.status(400).json({
+        error: "O valor (amount) e o número de telefone são obrigatórios."
+      });
     }
 
-    // Chamada para a ZumboPay
+    // Chamada à API da ZumboPay
     const response = await fetch("https://zumbopay.com/api/v1/payments", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "Accept": "application/json",
+        "Accept": "application/json"
       },
       body: JSON.stringify({
         amount: Number(body.amount),
@@ -51,10 +48,10 @@ export async function POST(request) {
         method: body.method || "mpesa",
         customer: {
           name: body.customer?.name || "Cliente",
-          phone: body.customer?.phone,
+          phone: body.customer?.phone
         },
-        callback_url: body.return_url || "https://viladriver.vercel.app/",
-      }),
+        callback_url: body.return_url || "https://viladriver.vercel.app/"
+      })
     });
 
     const text = await response.text();
@@ -66,15 +63,12 @@ export async function POST(request) {
       data = { raw: text };
     }
 
-    return new Response(JSON.stringify(data), {
-      status: response.status,
-      headers: corsHeaders,
-    });
+    return res.status(response.status).json(data);
 
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message || "Erro no servidor" }),
-      { status: 500, headers: corsHeaders }
-    );
+    console.error("Erro na API:", error);
+    return res.status(500).json({
+      error: error.message || "Erro interno do servidor."
+    });
   }
 }
